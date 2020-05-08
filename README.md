@@ -1,30 +1,45 @@
-Project:Price Analysis of Airbnb Listings 
-Team: Dipika Jiandani, Manshi Shah 
+# Project:Price Analysis of Airbnb Listings 
+# Team: Dipika Jiandani, Manshi Shah 
  
  
-Background:  Airbnb is an online market that offers homestays and lodging. Airbnb does not own these lodgings; they just bridge the gap between the guests and the hosts. We chose the Airbnb NYC dataset because it generates tons of data about density of rentals across regions (cities and neighborhoods), price variations across rentals, host-guest interactions in the form of reviews, and so forth. Also, NYC is the highest revenue generating place in the entire US with more than 48000 listings as of December 2019.  
+## Background:  
+Airbnb is an online market that offers homestays and lodging. Airbnb does not own these lodgings; they just bridge the gap between the guests and the hosts. We chose the Airbnb NYC dataset because it generates tons of data about density of rentals across regions (cities and neighborhoods), price variations across rentals, host-guest interactions in the form of reviews, and so forth. Also, NYC is the highest revenue generating place in the entire US with more than 48000 listings as of December 2019.  
  
-Dataset:  NYC data of Airbnb Listings [http://insideairbnb.com/get-the-data.html] Calendar.csv: Each row of this dataset provides us with the bookings for the year 2020 (future booking dates). The major fields of this CSV file are listing id, date, price, adjusted price, minimum nights and maximum nights. It has 7 columns and 1865068 6rows.  Listings.csv: Each row contains a unique listing of Airbnb in NYC. There are 106 attributes and 51097 observations. Some of the major variables are description, neighborhood, transit, access, host location, latitude, longitude, review score, listing type, neighborhood.  
+## Dataset:  NYC data of Airbnb Listings [http://insideairbnb.com/get-the-data.html] 
+Calendar.csv: Each row of this dataset provides us with the bookings for the year 2020 (future booking dates). The major fields of this CSV file are listing id, date, price, adjusted price, minimum nights and maximum nights. It has 7 columns and 1865068 6rows.  Listings.csv: Each row contains a unique listing of Airbnb in NYC. There are 106 attributes and 51097 observations. Some of the major variables are description, neighborhood, transit, access, host location, latitude, longitude, review score, listing type, neighborhood.  
  
-Research questions:  Primary Research Question: How can the host maximize profits on its listings?  Airbnb generates revenue by charging a 3% of the rent value from the hosts and 6-10% of the rent value from the guests. There are multiple factors that contribute to the price of AirBnB listings. However, in order to maximize the profits for the hosts, we need to identify the most prominent predictors of the price. Hence, we require statistical learning methods to obtain accurate values and the right guidance for the hosts. 
+## Research questions:  
+Primary Research Question: How can the host maximize profits on its listings?  Airbnb generates revenue by charging a 3% of the rent value from the hosts and 6-10% of the rent value from the guests. There are multiple factors that contribute to the price of AirBnB listings. However, in order to maximize the profits for the hosts, we need to identify the most prominent predictors of the price. Hence, we require statistical learning methods to obtain accurate values and the right guidance for the hosts. 
  
 Based on the recent trends and research papers, we identified that amenities, host_is_superhost, review_score_rating contribute largely to an increase/decrease in price. However, we need to identify which specify amenities, which particular review score and which specific factor causes an increase. Below is the detailed description of each of our secondary research questions: 
  
-Secondary Research Questions: 1. Which amenities affect the price of listings for the host? Amenities play an integral part to attract the tourists to rent an AirBnB listing. However, amenities differ in each listing. Some listings have hot tubs whereas others have swimming pools. As part of our research question, we identify the amenities that have 
-attracted the maximum number of tourists. This analysis will guide the hosts to incorporate these predicted amenities as part of their listings to gain higher profits. 
+## Secondary Research Questions: 
+### 1. Which amenities affect the price of listings for the host? 
+Amenities play an integral part to attract the tourists to rent an AirBnB listing. However, amenities differ in each listing. Some listings have hot tubs whereas others have swimming pools. As part of our research question, we identify the amenities that have attracted the maximum number of tourists. This analysis will guide the hosts to incorporate these predicted amenities as part of their listings to gain higher profits. 
  
-2. Which factors contribute to the host being a super host? Airbnb launched a super host program to reward the hosts with a VIP status. As a super host, an AirBnb host will have more viability and thus leading to higher earning potential. However, there are multiple factors like cancellation policy, response rate etc. that make a host a super host. The goal of this analysis is to convey all the factors and statistics to these hosts. 
+### 2. Which factors contribute to the host being a super host?
+Airbnb launched a super host program to reward the hosts with a VIP status. As a super host, an AirBnb host will have more viability and thus leading to higher earning potential. However, there are multiple factors like cancellation policy, response rate etc. that make a host a super host. The goal of this analysis is to convey all the factors and statistics to these hosts. 
  
-3. Which review rating scores impact the overall review rating?  Airbnb claims that at least 50% users rate their stay. Airbnb provides users to rate their stay based on 6 factors: cleanliness, location, communication, accuracy, check in and value. Review rating of each factor is represented on a scale of 1 - 10 which 1 being an upset customer and 10 being a happy customer. Also, it is universally known that an interested customer would often look at the reviews before booking the listing. Thus, reviews largely drive an increase/decrease in the price of listings. We are performing this analysis to intimate the host about the most preferred contributor of a review score. 
+### 3. Which review rating scores impact the overall review rating?  
+Airbnb claims that at least 50% users rate their stay. Airbnb provides users to rate their stay based on 6 factors: cleanliness, location, communication, accuracy, check in and value. Review rating of each factor is represented on a scale of 1 - 10 which 1 being an upset customer and 10 being a happy customer. Also, it is universally known that an interested customer would often look at the reviews before booking the listing. Thus, reviews largely drive an increase/decrease in the price of listings. We are performing this analysis to intimate the host about the most preferred contributor of a review score. 
  
-Plan for data analysis:  
+## Plan for data analysis:  
  
-1. Data Cleaning ○ Imputed missing values with mean, medians or zeros depending on the research question and the variables in question. ○ Dropped columns with maximum N/A values ○ Removed $, % signs from numerical fields. ○ Eliminated redundant values like {, / and [] from the amenities column to create distinct amenities columns. ○ Converted important categorical variables using one hot encoding to perform model building.  ○ The Amenities Column had values in the form of a list. Example: {Oven, Car Parking, TV, Elevator}. We converted this column into a pivot table containing binary digits for the presence or absence of the amenity. (145 columns) ○ Identified & eliminated columns with multicollinearity using MCTest.  ○ We deleted the amenity columns that had a sum of less than 1000 since the mean was 7540. 
+### 1. Data Cleaning 
+○ Imputed missing values with mean, medians or zeros depending on the research question and the variables in question. 
+○ Dropped columns with maximum N/A values 
+○ Removed $, % signs from numerical fields. 
+○ Eliminated redundant values like {, / and [] from the amenities column to create distinct amenities columns. 
+○ Converted important categorical variables using one hot encoding to perform model building.  
+○ The Amenities Column had values in the form of a list. Example: {Oven, Car Parking, TV, Elevator}. We converted this column into a pivot table containing binary digits for the presence or absence of the amenity. (145 columns) 
+○ Identified & eliminated columns with multicollinearity using MCTest. 
+○ We deleted the amenity columns that had a sum of less than 1000 since the mean was 7540. 
  
  
  
  
-2. Exploratory Data Analysis ○ Depiction of the frequency distribution of the property types in New York: We observed that ‘apartment’ is the most widely available property type and ‘house’ is the second most widely available property type in NYC. 
+### 2. Exploratory Data Analysis 
+○ Depiction of the frequency distribution of the property types in New York: We observed that ‘apartment’ is the most widely available property type and ‘house’ is the second most widely available property type in NYC. 
  
  
 Fig. 1.1 Frequency vs Property type in NYC 
@@ -52,17 +67,17 @@ Fig. 1.4 Average listing price vs neighbourhoods  in NYC
  
 Fig. 1.5 Number of Bookings vs Weekdays and Months 
  
-3. Feature Selection In this step, we used three preliminary methods to narrow down the variables for our model building process. ● Random Forest ● P-value and residual graphs ● Lasso regression with cross validation  Out of these 3 methods, the lasso regression helped us the most in directly eliminating the  variables with a zero-coefficient value. Listings’ dataset had 106 attributes. However, based on domain knowledge and redundant values we reduced the number of columns to 56. 
+### 3. Feature Selection 
+In this step, we used three preliminary methods to narrow down the variables for our model building process. ● Random Forest ● P-value and residual graphs ● Lasso regression with cross validation  Out of these 3 methods, the lasso regression helped us the most in directly eliminating the  variables with a zero-coefficient value. Listings’ dataset had 106 attributes. However, based on domain knowledge and redundant values we reduced the number of columns to 56. 
  
-4.  Model Fitting and Evaluation: • In order to evaluate which model works the best for different research questions, we used the below accuracy metrics: 
+### 4.  Model Fitting and Evaluation:
+• In order to evaluate which model works the best for different research questions, we used the below accuracy metrics: 
  
 • Primary Question: How can the host maximize profits on its listings?  Target Variable: Listing Price ($) Description: Based on our research in the above three sub-research questions, we narrowed down our variables to the most influential and important ones namely-TV, Gym, Elevator, Family_kid_friendly, Private Entrance, Luggage_dropoff_allowed, Indoor_fireplace, Host_acceptance_rate, Host_response_rate, Host_listings_count, Beds, Maximum_nights and minimum_nights, Number_of_reviews,review_scores_ratings. We combined all these selected variables to predict our target variable price. 
  
+
  
- 
- 
- 
-Metrics Random Forest Gradient Boosting Elastic Net 
+## Metrics Random Forest Gradient Boosting Elastic Net 
 RMSE 79.062 82.719 89.127 
 • Secondary Question 1: Which amenities affect the price of listings for the host? Target Variable: Listing Price ($) Description:  We first ran the random forest method in order to get an idea of the Mean Decrease Accuracy and the Mean Gini Index values. This helped us in directly eliminating the ones that had very low values. Next, we fit a linear regression model to understand the relationship of the variables with the target variables. This gave us a list of variables that were significant based on their p-values. Using these variables, we then used the XGBoost, ElasticNet, Lasso and random forest with specific ntree and mtry values. 
  
