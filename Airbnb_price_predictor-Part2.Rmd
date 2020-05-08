@@ -1,0 +1,980 @@
+---
+title: "MDS Project"
+author: "Dipika Jiandani and Manshi Shah"
+date: "4/8/2020"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Reading in all the files
+
+```{r}
+listings_dataset <- read.csv("C:/Methods to DS/Project/listings.csv", sep=",", header = TRUE)
+calendar_dataset <- read.csv("C:/Methods to DS/Project/calendar.csv", sep=",", header = TRUE)
+reviews_dataset <- read.csv("C:/Methods to DS/Project/reviews.csv", sep=",", header = TRUE)
+#summarized files
+reviews2_dataset <- read.csv("C:/Methods to DS/Project/reviews_summarized.csv", sep=",", header = TRUE)
+listings2_dataset <- read.csv("C:/Methods to DS/Project/listings_summarized.csv", sep=",", header = TRUE)
+```
+
+Data cleaning:
+
+Getting rid of redundant columns and the variables that are outright not beneficial to our research and creating temporary variables
+
+```{r}
+#temp variables
+calendar <- calendar_dataset
+listings <- listings_dataset
+reviews <- reviews_dataset
+
+drops_listings <- c("listing_url","scrape_id","last_scraped","thumbnail_url","medium_url","picture_url","xl_picture_url","host_url","host_thumbnail_url","host_picture_url","calendar_last_scraped","license","jurisdiction_names")
+
+listings <- listings[ , !(names(listings) %in% drops_listings)]
+head(listings)
+
+#remove leading and trailing spaces from the column names
+names(listings) <- trimws(names(listings))
+```
+
+Checking for NAs
+
+```{r}
+
+cat("The columns that have NAs in Calendar are: ")
+colnames(calendar)[apply(is.na(calendar),2,any)]
+
+cat("The columns that have NAs in Listings are: ")
+colnames(listings)[apply(is.na(listings),2,any)]
+
+cat("The columns that have NAs in Reviews are: ")
+colnames(reviews)[apply(is.na(reviews),2,any)]
+
+```
+
+We can observe that the NAs in Calendar and Reviews are negligible as compared to the Listings. Hence, counting each variales total NAs.
+
+```{r}
+sapply(listings, function(x) sum(is.na(x)))
+
+```
+
+We see that the maximum NA variables are the ones related to the reviews. When we approach our research sub-question involving reviews, we would handle these NAs. As for the others, the NAs are quite negligible except for "square_feet". Out of 51097 observations, we have 50713 NAs. Hence, it would be best to remove this variable from our dataset.
+
+```{r}
+listings <- subset( listings, select = -square_feet)
+```
+
+Exploratory data analysis:
+
+```{r}
+
+str(listings)
+
+```
+
+
+Research question 1:
+How do the amenities affect the returns earned on these listings? 
+• Comparing your listing’s amenities to the competition’s is a great way to stand out from the pack. 
+
+To analyze the this research question, we would need the amenities column. This column has all the amenities present in a list format. We need to convert this to multiple columns containing different amenities. 
+
+The preprocessing is as follows:
+```{r}
+sum(is.na(listings$price))
+b<-listings[complete.cases(listings$price), ]
+```
+
+Pre-processing for the amenities column:
+
+```{r}
+#remove the curly braces
+listings$amenities <-gsub("\\{|\\}", "", listings$amenities)
+listings$price <- trimws(listings$price, which = c("both"))
+#convert price to numerical
+listings$price <-gsub("\\$","", listings$price)
+listings$price <- as.numeric(listings$price)
+#remove rows with NA in price
+listings<-listings[complete.cases(listings$price), ]
+#separating all amenities
+dat <- with(listings, strsplit(amenities, ','))
+df2 <- data.frame(id = factor(rep(listings$id, times = lengths(dat)), levels = listings$id),amenities = unlist(dat))
+df2$amenities <- gsub('"', '', df2$amenities)
+all_amenities <- as.data.frame(cbind(id = listings$id,table(df2$id, df2$amenities)))
+```
+
+
+
+
+We see the above warning because when we try converting all the prices to numeric, we see that few of them do not have a numerical value. They are unlisted. Hence we remove those rows.
+
+Hence, the 'all_amenities' dataframe contains all possible types of amenities in different columns corresponding to each listing ID.
+
+Moving ahead with feature selection. We have 145 columns containing 145 different amenities. We need to narrow down our analysis and further filter out the principal variables that would help us in relating the price with the amenities.
+
+Extracting the 'price' from listings data and joining it with our amenities data.
+
+```{r}
+library(plyr)
+total_amenities <- merge(all_amenities,listings,by ="id")
+#storing this in our selected amenities
+selected_amenities<-total_amenities
+total_amenities <- total_amenities[,-146:-193]
+total_amenities <- total_amenities[,1:146]
+```
+We have created a final dataframe containing the id, amenities and the price of each listing.
+
+We can now perform feature selection within the amenities using a couple of techniques. However, the best method here would be to calculate the total number of amenities in each of the listings and remove the ones that are insignificant. Since the mean of the sum of amenities is 7540. We can delete columns that have a sum of less than 1000.
+
+Hence, we can delete all columns that have a sum of less than or equal to 1000.
+
+```{r}
+final_amenities = total_amenities[,colSums(total_amenities[,2:145]) > 1000]
+ncol(final_amenities)
+#remove leading and trailing spaces from the column names
+names(final_amenities) <- trimws(names(final_amenities))
+#replacing all the unique characters in the column names to underscores
+#install.packages("janitor")
+library(janitor)
+final_amenities <- clean_names(final_amenities)
+#removing the id variable 
+final_amenities <- final_amenities[,2:79]
+```
+
+Merging listing and amenities to get a collated dataset
+```{r}
+# merge two data frames by ID
+names(listings) <- trimws(names(listings))
+total <- merge(x=listings,y=selected_amenities,by.y='id',by.x='id')
+
+
+```
+
+
+
+Hence, we have 79 columns for amenities and 1 column containing the IDs and 1 for the prices.
+
+Dividing the dataset into training and test set:
+
+```{r}
+set.seed (7)
+training <- sample(nrow(final_amenities), size = nrow(final_amenities) * 0.75)
+training_set <- final_amenities[training,]
+testing_set <- final_amenities[-training,]
+
+x_train=model.matrix(price~.,training_set)[,-78]
+x_test=model.matrix(price~.,testing_set)[,-78]
+
+y_train=training_set$price
+y_test=testing_set$price
+
+
+```
+
+
+
+Identifying multicollionearity:
+Using the Farrar – Glauber Test to remove multicollinearity
+
+```{r}
+#install.packages('mctest')
+library(mctest)
+imcdiag(x_train,y_train)
+```
+
+
+Eliminating the variables with a very high vif to remove multicollinearity. 
+
+```{r}
+drops_amenities <- c("accessible_height_toilet","building_staff","carbon_monoxide_detector","wide_hallways","well_lit_path_to_entrance","trash_can","translation_missing_en_hosting_amenity_50","translation_missing_en_hosting_amenity_49","toilet_paper","stove","smart_lock","shower_gel","shower_chair","self_check_in","refrigerator","oven","no_stairs_or_steps_to_enter","long_term_stays_allowed","lockbox","keypad","flat_path_to_guest_entrance","extra_space_around_bed","internet","dishwasher","dishes_and_silverware","coffee_maker")
+
+final_amenities <- final_amenities[ , !(names(final_amenities) %in% drops_amenities)]
+head(final_amenities)
+```
+
+
+We now have 52 columns with 51 amenities and 1 price variable.
+
+Approach 1:
+
+We can now move ahead with the second step of feature selection. There are a couple of methods that can be used for selecting the most important features. Here, we use the Random Forest method to get the MeanDecreaseAccuracy that can help us in knowing the importance of each variable.
+Since Random Forest takes up a lot of time and computation power. We can use a sample of the entire data (about 50%) to get an idea of the important variables. 
+
+Creating a training and a testing set:
+```{r}
+library(randomForest)
+set.seed(123)
+training <- sample(nrow(final_amenities), size = nrow(final_amenities) * 0.50)
+training_set <- final_amenities[training,]
+training_set <- droplevels(training_set)
+rf <- randomForest(price~., data=training_set, mtry = sqrt((ncol(training_set))-1), nTree=50, importance=TRUE)
+#rf
+importance(rf)
+impToPlot<-varImpPlot(rf)
+```
+
+The following chart gives us a better view of the important variables and the unimportant ones. We would consider the MeanDecreaseAccuracy to choose the 25 most important variables for further processing.
+
+```{r}
+#install.packages("caret")
+library(caret)
+#install.packages("varImp")
+library(varImp)
+impToPlot<-varImpPlot(rf, n.var=10) 
+```
+
+'lock_on_bedroom_door' causes the MSE to increase way too much. The Gini index is also pretty high. Hence, we would remove 'lock_on_bedroom_door'.
+
+```{r}
+drops_amenities <- c("lock_on_bedroom_door")
+
+final_amenities <- final_amenities[ , !(names(final_amenities) %in% drops_amenities)]
+head(final_amenities)
+
+```
+
+
+Fitting a linear regression model with all the variables as stated above in order to get a better understanding of the relationship:
+
+```{r}
+set.seed(100)
+training <- sample(nrow(final_amenities), size = nrow(final_amenities) * 0.75)
+training_set <- final_amenities[training,]
+testing_set <- final_amenities[-training,]
+lmfit <- lm(price~.,data=training_set)
+summary(lmfit)
+plot(lmfit)
+
+```
+
+By our analysis, we can see that the R square values are low. Only 15.8% of the variance in the target can be explained by the variance in the predictors. We also have too many outliers and insignificant variables.
+
+We need to try a better approach to get a high accuracy and low train error.
+
+We can use lasso regression to understand the importance of the variables in estimating the price.
+
+
+
+Fitting a lasso regression model with cross validation:
+
+```{r}
+library(glmnet)
+set.seed (7)
+training <- sample(nrow(final_amenities), size = nrow(final_amenities) * 0.75)
+training_set <- final_amenities[training,]
+testing_set <- final_amenities[-training,]
+
+x_train=model.matrix(price~.,training_set)[,-78]
+x_test=model.matrix(price~.,testing_set)[,-78]
+
+y_train=training_set$price
+y_test=testing_set$price
+
+lasso.mod=glmnet(x_train,y_train,alpha=1)
+#coef(lasso.mod)
+
+cv.out=cv.glmnet(x_train,y_train,alpha=1)
+plot(cv.out)
+
+bestlam=cv.out$lambda.min
+print("Best lamda value: ")
+bestlam
+
+lasso_pred=predict(lasso.mod ,s=bestlam ,newx=x_test)
+
+MSE.lasso=mean((lasso_pred-y_test)^2) 
+print("MSE for lasso regression: ")
+MSE.lasso
+
+#print("Zero coefficients: ")
+#coeff[coeff == 0]
+
+```
+
+
+
+```{r}
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square
+)
+}
+
+eval_results(y_test, lasso_pred, x_test)
+```
+
+Displaying the regression coefficients:
+
+```{r}
+model <- glmnet(x_train, y_train, alpha = 1, lambda = bestlam)
+# Display regression coefficients
+coef(model)
+```
+
+After variable selection using lasso regression. We can move ahead and remove the vraiables that have a coefficient of 0 or nearest to 0.
+
+```{r}
+drops_amenities <- c("bathtub_with_bath_chair","beachfront","buzzer_wireless_intercom","changing_table","essentials","ground_floor_access","hot_water_kettle","safe","hot_tub","safety_card","lake_access")
+
+final_amenities <- final_amenities[ , !(names(final_amenities) %in% drops_amenities)]
+head(final_amenities)
+
+
+```
+
+Fitting a Random Forest model to our cleaned dataset
+
+Creating a training and a testing set:
+```{r}
+library(randomForest)
+set.seed(123)
+training <- sample(nrow(final_amenities), size = nrow(final_amenities) * 0.50)
+training_set <- final_amenities[training,]
+training_set <- droplevels(training_set)
+testing_set <- final_amenities[-training,]
+```
+
+```{r}
+
+rf <- randomForest(price~., data=training_set, mtry = sqrt((ncol(training_set))-1), nTree=200, importance=TRUE)
+importance <- importance(rf)
+varImpPlot(rf)
+```
+
+
+
+
+
+```{r}
+plot(rf)
+
+```
+
+Selecting the value of ntree as 200 from the above plot.
+Now, we need to select the value of mtry by trial and error method.
+```{r}
+oob.err=double(10)
+test.err=double(10)
+
+for(mtry in 1:10) 
+{
+  rf=randomForest(price ~ . , data = training_set,mtry=mtry,ntree=200) 
+  oob.err[mtry] = rf$mse[200] 
+  pred<-predict(rf,testing_set) 
+  test.err[mtry]= with(testing_set, mean( (price - pred)^2)) 
+  cat(mtry," ")
+  
+}
+
+
+```
+
+```{r}
+test.err
+oob.err
+
+```
+
+Hence, mtry=5 is the best
+
+```{r}
+matplot(1:mtry , cbind(oob.err,test.err), pch=19 , col=c("red","blue"),type="b",ylab="MSE",xlab="Number of Predictors")
+legend("topright",legend=c("OOB Error","Test Error"),pch=19, col=c("red","blue"))
+
+
+```
+
+Finally demonstrating the best model for our dataset to predict the price of the listings based on the amenities.
+
+```{r}
+rf=randomForest(price ~ . , data = training_set,mtry=5,ntree=200) 
+importance <- importance(rf)
+varImpPlot(rf)
+pred<-predict(rf,testing_set) 
+```
+
+```{r}
+plot(testing_set$price, pred)
+RMSE <- (sum((pred-testing_set$price)^2)/length(testing_set$price))^(1/2)
+qqnorm((pred - testing_set$price)/sd(pred-testing_set$price))
+qqline((pred-testing_set$price)/sd(pred-testing_set$price))
+RMSE
+```
+
+We finally get a Root mean square error of 99.635 for our best Random forest model.
+
+Gradient Boosting to find the important amenities affecting the price.
+
+```{r}
+#Gradient Boosting
+#Reference:https://www.storybench.org/tidytuesday-bike-rentals-part-2-modeling-with-gradient-boosting-machine/
+library(MASS)
+library(gbm)
+set.seed(123)
+review.boost=gbm(price ~. ,data = training_set,distribution = "gaussian",n.trees = 1000,shrinkage = 0.01, interaction.depth =2)
+review.boost
+#Summary gives a table of Variable Importance and a plot of Variable Importance
+summary(review.boost) 
+
+#Model Performance : 1000 trees will give the best performance
+perf_gbm1 = gbm.perf(review.boost)
+print(perf_gbm1)
+
+amenities_prediction_1 <- stats::predict(
+                          # the model from above
+                          object = review.boost, 
+                          # the testing data
+                          newdata = testing_set,
+                          # this is the number we calculated above
+                          n.trees = perf_gbm1)
+
+rmse_fit1 <- Metrics::rmse(actual = testing_set$price, 
+                           predicted = amenities_prediction_1)
+
+
+print(rmse_fit1)
+
+#Review Score Value and Review Score Accuracy have the highest relative importance.
+```
+
+Result:
+Using gradient boosting, we see that the top amenities that cause a hike in the price of a listing are tv, elevator, gym, pack_a_n_play_travel_crib, indoor_fireplace, cable_tv, family_kid_friendly.
+There were 39 predictors of which 31 had non-zero influence.
+1000 tress gives us the best performance.
+The RMSE value obtained is 101.6264
+
+
+Gradient Boosting in XGBoost to predict price based on amenities.
+
+```{r}
+#Gradient Boosting in XGBoost
+library(xgboost)
+library(tidyverse)
+
+train.data  = model.matrix(price ~., data = training_set)
+test.data  = model.matrix(price~. ,data = testing_set)
+
+label = as.integer(listings$price)
+
+train.label = label[training]
+
+test.label = label[-training]
+
+#Transform into objects to fit the model
+xgb.train = xgb.DMatrix(data=train.data,label=train.label)
+xgb.test = xgb.DMatrix(data=test.data,label=test.label)
+
+#As the number of iterations increase, Train error rate decreases
+xgboost.fit <- xgboost(data = xgb.train, label = training_set$price, max.depth = 2,
+               eta = 1, nthread = 2, nround = 5 )
+
+
+pred <- predict(xgboost.fit, xgb.test)
+
+#Model performance metrics
+#RMSE
+RMSE <- (sum((pred-testing_set$price)^2)/length(testing_set$price))^(1/2)
+qqnorm((pred - testing_set$price)/sd(pred-testing_set$price))
+qqline((pred-testing_set$price)/sd(pred-testing_set$price))
+RMSE
+
+
+#Tuning the model
+xgboost.tuned <- xgboost(data = xgb.train, # the data           
+                 max.depth = 2, # the maximum depth of each decision tree
+                 nround = 10, # number of boosting rounds
+                 early_stopping_rounds = 3# if we dont see an improvement in this many rounds, stop
+                )
+
+pred.tuned <- predict(xgboost.tuned, xgb.test)
+
+# Model performance metrics
+RMSE <- (sum((pred.tuned-testing_set$price)^2)/length(testing_set$price))^(1/2)
+qqnorm((pred.tuned - testing_set$price)/sd(pred.tuned-testing_set$price))
+qqline((pred.tuned-testing_set$price)/sd(pred.tuned-testing_set$price))
+RMSE
+#Tuned XGBoost RMSE : 103.0654
+```
+
+Result: 
+For XGBoost, we obtained an RMSE of 103.0013 and a tuned RMSE of 103.0654. This model performed worse than Gradient Boosting.
+
+
+Using Elastic net to predict price on the basis on amenities.
+
+```{r}
+#Elastic Net Regression [Combination of Ridge and Lasso]
+#Reference : http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalized-regression-essentials-ridge-lasso-elastic-net/
+library(glmnet)
+library(caret)
+library(tidyverse)
+
+set.seed(123)
+model <- train(price ~ ., data = training_set, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+
+# Best tuning parameter
+model$bestTune
+
+coef(model$finalModel, model$bestTune$lambda)
+
+# Make predictions on the test data
+x.test <- model.matrix(price ~ ., testing_set)[,-1]
+predictions <- model %>% predict(x.test)
+
+# Model performance metrics
+RMSE <- (sum((predictions-testing_set$price)^2)/length(testing_set$price))^(1/2)
+qqnorm((predictions - testing_set$price)/sd(predictions-testing_set$price))
+qqline((predictions-testing_set$price)/sd(predictions-testing_set$price))
+RMSE
+
+
+```
+
+
+Result: Using the Elastic net model, we see that for aplha 0.2 and best lambda as 0.77, we get a good RMSE of 101.9289. The most important amenities are family_kid_friendly, gym, doorman, indoor_fireplace, tv, step_free_shower,pack_a_n_play_travel_crib,bathroom_essentials, elevator.
+
+
+
+EDA:
+
+Time Series Analysis of Airbnb Data:
+
+
+Preprocessing:
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+#remove leading and trailing spaces from the column names
+names(calendar) <- trimws(names(calendar))
+
+calendar$price <- trimws(calendar$price, which = c("both"))
+#convert price to numerical
+calendar$price <-gsub("\\$","", calendar$price)
+calendar$price <- as.numeric(calendar$price)
+#remove rows with NA in price
+calendar<-calendar[complete.cases(calendar$price), ]
+
+
+```
+
+```{r}
+library(lubridate)
+class(calendar$date)
+calendar$date <- as.Date(calendar$date)
+class(calendar$date)
+
+```
+
+```{r}
+calendar1 <-with(calendar, calendar[(date >= "2020-02-12" & date <= "2020-02-28"), ])
+calendar$month<-format(as.Date(calendar$date,format="%Y-%m-%d"), format = "%m")
+calendar$day <- weekdays(as.Date(calendar$date))
+```
+
+
+Bar graph of variation of price over the months.
+```{r}
+library(plyr)
+library(ggplot2)
+
+avgprice = aggregate(calendar$price, list(calendar$month), mean)
+print(avgprice)
+
+# Basic barplot for Average Listing prices over months
+priceplot<-ggplot(data=avgprice, aes(x=Group.1, y=x, fill=Group.1)) +
+  geom_bar(stat="identity") + labs(x = "Month", y = "Mean Price Values") +
+  theme(axis.text.x = element_text(angle = 90, size = 12,
+                                   vjust = 0.5))
+priceplot
+
+```
+
+Barplot for price variation over a period of one week:
+
+```{r}
+library(plyr)
+library(ggplot2)
+
+avgprice = aggregate(calendar$price, list(calendar$day), mean)
+print(avgprice)
+# Basic barplot for Average Listing prices over months
+priceplot<-ggplot(data=avgprice, aes(x=Group.1, y=x,fill=Group.1)) +
+  geom_bar(stat="identity") + labs(x = "Weekday", y = "Mean Price Values") +
+  theme(axis.text.x = element_text(angle = 90, size = 12,
+                                   vjust = 0.5))
+priceplot
+```
+
+
+```{r}
+library(RColorBrewer)
+library(plyr)
+library(ggplot2)
+avgprice = aggregate(calendar$price, list(calendar$day, calendar$month), mean)
+print(avgprice)
+colourCount = length(unique(avgprice$Group.2))
+getPalette = colorRampPalette(brewer.pal(12, "Set1"))
+
+ggplot(avgprice,aes(x=Group.1, y=x,)) + 
+    geom_bar(aes(fill = Group.2),stat = "identity",position = "dodge")+scale_fill_manual(values = getPalette(colourCount)) +ggtitle(label = "Weekday Bookings Each Month")+theme_minimal()+theme(plot.title = element_text(hjust = 0.5, lineheight = 0.8, face = "bold"))+xlab("Weekdays")+ylab("Number of Bookings")
+
+
+```
+
+
+
+
+
+RESEARCH QUESTION 3: What factors are differentiate a host from a superhost?
+
+Pre-processing and Stratified Sampling:
+```{r}
+library(dplyr)
+#install.packages("splitstackshape")
+library(splitstackshape)
+library(devtools)
+listings <- listings %>%
+    mutate(host_is_superhost = if_else(host_is_superhost == 't',1,0))
+listings$host_is_superhost=as.factor(listings$host_is_superhost)
+str(listings$host_is_superhost)
+set.seed(123)
+
+#stratified sampling to remove the imbalance in classes and reduce the size of the data
+sampled_data<-stratified(listings, "host_is_superhost", 10000)
+
+
+```
+
+Based on our domain knowledge and with reference to a number of research papers, we decided to use the following variables for our logistic regression model.
+
+```{r}
+#pre-processing the price column and converting to int
+sampled_data$price <- trimws(sampled_data$price, which = c("both"))
+#convert price to numerical
+sampled_data$price <-gsub("\\$","", sampled_data$price)
+sampled_data$price <- as.numeric(sampled_data$price)
+#remove rows with NA in price
+sampled_data<-sampled_data[complete.cases(sampled_data$price), ]
+```
+The above warning is received due to our conversion to numeric.The blank cells are hence converted to NAs. We then removed all the NAs in the last step.
+
+```{r}
+#pre-processing of host_response_rate and host_acceptance_rate
+
+sampled_data$host_response_rate <- trimws(sampled_data$host_response_rate, which = c("both"))
+#convert price to numerical
+sampled_data$host_response_rate <-gsub("\\%","", sampled_data$host_response_rate)
+sampled_data$host_response_rate <- as.numeric(sampled_data$host_response_rate)
+#remove rows with NA 
+sampled_data<-sampled_data[complete.cases(sampled_data$host_response_rate), ]
+
+
+sampled_data$host_acceptance_rate <- trimws(sampled_data$host_acceptance_rate, which = c("both"))
+#convert price to numerical
+sampled_data$host_acceptance_rate <-gsub("\\%","", sampled_data$host_acceptance_rate)
+sampled_data$host_acceptance_rate <- as.numeric(sampled_data$host_acceptance_rate)
+#remove rows with NA 
+sampled_data<-sampled_data[complete.cases(sampled_data$host_acceptance_rate), ]
+
+#remove rows with NA
+sampled_data<-sampled_data[complete.cases(sampled_data$host_listings_count), ]
+#remove rows with NA
+sampled_data<-sampled_data[complete.cases(sampled_data$property_type), ]
+#remove rows with NA
+sampled_data<-sampled_data[complete.cases(sampled_data$room_type), ]
+#remove rows with NA 
+sampled_data<-sampled_data[complete.cases(sampled_data$accommodates), ]
+sampled_data<-sampled_data[complete.cases(sampled_data$bedrooms), ]
+sampled_data<-sampled_data[complete.cases(sampled_data$beds), ]
+sampled_data<-sampled_data[complete.cases(sampled_data$bathrooms), ]
+sampled_data<-sampled_data[complete.cases(sampled_data$bed_type), ]
+sampled_data<-sampled_data[complete.cases(sampled_data$minimum_nights), ]
+sampled_data<-sampled_data[complete.cases(sampled_data$maximum_nights), ]
+sampled_data<-sampled_data[complete.cases(sampled_data$number_of_reviews), ]
+sampled_data<-sampled_data[complete.cases(sampled_data$review_scores_rating), ]
+
+```
+The above warning is received due to our conversion to numeric.The blank cells are hence converted to NAs. We then removed all the NAs in the last step.
+
+
+
+Logistic regression model to know the most important factors that distinguishes a host from a superhost:
+
+```{r}
+set.seed(123)
+#splitting into training and testing set
+training <- sample(nrow(sampled_data), size = nrow(sampled_data) * 0.75)
+training_set <- sampled_data[training,]
+testing_set <- sampled_data[-training,]
+#fitting a logistic regression model
+mylogit <- glm(host_is_superhost ~  host_acceptance_rate + host_response_rate + host_listings_count+ accommodates + bedrooms + beds + bathrooms + price + maximum_nights + minimum_nights+ number_of_reviews+ review_scores_rating, data = training_set, family = "binomial")
+summary(mylogit)
+```
+
+From the above summary, we see that the most significant variables are host_acceptance_rate, host_response_rate, host_listings_count, beds, maximum_nights, minimum_nights, number_of_reviews and review_scores_ratings.
+
+
+Testing our model and plotting an ROC curve:
+```{r}
+set.seed(123)
+#install.packages('InformationValue')
+library(InformationValue)
+predicted <- predict(mylogit, testing_set, type="response") 
+plotROC(testing_set$host_is_superhost, predicted)
+pred<-round(predicted)
+pred=as.factor(pred)
+confusionMatrix(testing_set$host_is_superhost, pred)
+#Accuracy:
+acc=(479+2089)/(479+2089+611+151)
+acc
+```
+
+Hence, our model gives an AUROC of 80.37% and an accuracy of 77.11%.
+
+
+
+Elastic net model for finding out important factors to differentiate between host and superhost.
+
+```{r}
+set.seed(123)
+#Elastic Net Regression [Combination of Ridge and Lasso]
+#Reference : http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalized-regression-essentials-ridge-lasso-elastic-net/
+library(glmnet)
+library(caret)
+library(tidyverse)
+
+model <- train(host_is_superhost ~  host_acceptance_rate + host_response_rate + host_listings_count+ accommodates + bedrooms + beds + bathrooms + price + maximum_nights + minimum_nights+ number_of_reviews+ review_scores_rating, data = training_set, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+
+# Best tuning parameter
+model$bestTune
+
+coef(model$finalModel, model$bestTune$lambda)
+
+# Make predictions on the test data
+x.test <- model.matrix(host_is_superhost ~  host_acceptance_rate + host_response_rate + host_listings_count + property_type + room_type+ accommodates + bedrooms + beds + bathrooms + price + bed_type + maximum_nights + minimum_nights+ number_of_reviews+ review_scores_rating, testing_set)
+predictions <- model %>% predict(x.test)
+
+# Model performance metrics
+
+#pred<-round(predictions)
+pred=as.factor(predictions)
+confusionMatrix(testing_set$host_is_superhost, pred)
+
+
+```
+
+Result:
+We use alpha as 0.4 and lambda as 0.0049. Our model accuracy is 76.88 and the most important variables are number_of reviews and review_score_rating.
+However, we obtained a better accuracy for the logistic regssion model.
+
+
+
+
+
+MAIN RESEARCH QUESTION
+Combining the results of all three research solutions into our main research question.
+
+Data cleaning
+
+```{r}
+set.seed (7)
+
+imp_var <- c("host_acceptance_rate.x","host_response_rate.x","host_listings_count.x","accommodates.x","bedrooms.x","beds.x","bathrooms.x","maximum_nights.x", "minimum_nights.x","number_of_reviews.x","review_scores_rating.x","tv.y","gym.y","elevator.y","family_kid_friendly.y","luggage_dropoff_allowed.y","private_entrance.y","indoor_fireplace.y","review_scores_cleanliness.x","review_scores_value.x","review_scores_communication.x","review_scores_accuracy.x","review_scores_checkin.x","review_scores_location.x","price.y")
+
+total1 <- total[ , (names(total) %in% imp_var)]
+
+
+#pre-processing of host_response_rate and host_acceptance_rate
+
+total1$host_response_rate.x <- trimws(total1$host_response_rate.x, which = c("both"))
+#convert price to numerical
+total1$host_response_rate.x <-gsub("\\%","", total1$host_response_rate.x)
+total1$host_response_rate.x <- as.numeric(total1$host_response_rate.x)
+
+total1$host_acceptance_rate.x <- trimws(total1$host_acceptance_rate.x, which = c("both"))
+#convert price to numerical
+total1$host_acceptance_rate.x <-gsub("\\%","", total1$host_acceptance_rate.x)
+total1$host_acceptance_rate.x <- as.numeric(total1$host_acceptance_rate.x)
+
+#remove na
+total1 <- na.omit(total1)
+
+```
+
+```{r}
+
+training <- sample(nrow(total1), size = nrow(total1) * 0.75)
+training_set <- total1[training,]
+testing_set <- total1[-training,]
+
+x_train=model.matrix(price.y~.,training_set)
+x_test=model.matrix(price.y~.,testing_set)
+y_train=training_set$price.y
+y_test=testing_set$price.y
+
+```
+
+
+Random forest:
+ 
+```{r}
+#Random Forest
+
+library(randomForest)
+set.seed(123)
+#training <- sample(nrow(total), size = nrow(total) * 0.50)
+#training_set <- total[training,]
+#training_set <- droplevels(training_set)
+rf <- randomForest(price.y~., data=training_set, mtry = sqrt((ncol(training_set))-1), nTree=50, importance=TRUE)
+#rf
+importance(rf)
+impToPlot<-varImpPlot(rf)
+plot(rf)
+
+```
+
+We see that the most prominent variables are review_scores_location,bedrooms,accommodates.We can choose an ntree value of 300.
+
+```{r}
+oob.err=double(10)
+test.err=double(10)
+for(mtry in 1:10)
+{
+  rf=randomForest(price.y ~ . , data = training_set,mtry=mtry,ntree=300)
+  oob.err[mtry] = rf$mse[300]
+  pred<-predict(rf,testing_set)
+  test.err[mtry]= with(testing_set, mean( (price.y - pred)^2))
+  cat(mtry," ")
+}
+```
+
+
+ 
+```{r}
+test.err
+oob.err
+```
+ 
+```{r}
+matplot(1:mtry , cbind(oob.err,test.err), pch=19 , col=c("red","blue"),type="b",ylab="MSE",xlab="Number of Predictors")
+legend("topright",legend=c("OOB Error","Test Error"),pch=19, col=c("red","blue"))
+```
+
+We choose mtry=5 as it gives the lowest MSE
+
+```{r}
+rf=randomForest(price.y ~ . , data = training_set,mtry=5,ntree=300)
+importance <- importance(rf)
+varImpPlot(rf)
+pred<-predict(rf,testing_set)
+data.frame(
+  RMSE = RMSE(pred, testing_set$price.y),
+  Rsquare = R2(pred, testing_set$price.y)
+)
+```
+ 
+We see that accommodates, bedrooms, bathrooms, number of reviews and beds are the most important variables.
+The RMSE obtained is 79.062 and the R square is 0.505
+ 
+ 
+Elastic net:
+
+Elastic net model for finding out important factors to differentiate between host and superhost.
+
+```{r}
+set.seed(123)
+#Elastic Net Regression [Combination of Ridge and Lasso]
+#Reference : http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalized-regression-essentials-ridge-lasso-elastic-net/
+library(glmnet)
+library(caret)
+library(tidyverse)
+
+model <- train(price.y ~ ., data = training_set, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+
+# Best tuning parameter
+model$bestTune
+
+coef(model$finalModel, model$bestTune$lambda)
+
+# Make predictions on the test data
+x.test <- model.matrix(price.y ~  ., testing_set)
+predictions <- model %>% predict(x.test)
+
+# Model performance metrics
+
+# Model performance metrics
+RMSE <- (sum((predictions-testing_set$price.y)^2)/length(testing_set$price.y))^(1/2)
+qqnorm((predictions - testing_set$price.y)/sd(predictions-testing_set$price.y))
+qqline((predictions-testing_set$price.y)/sd(predictions-testing_set$price.y))
+RMSE
+
+
+```
+ 
+The RMSE for elastic net is 89.127 and hence this performed worse than random forest.
+The alpha value is 0.5 and our best lambda value is 0.06637.
+ 
+ 
+Gradient Boosting:
+
+```{r}
+#Gradient Boosting
+#Reference:https://www.storybench.org/tidytuesday-bike-rentals-part-2-modeling-with-gradient-boosting-machine/
+library(MASS)
+library(gbm)
+set.seed(123)
+review.boost=gbm(price.y ~. ,data = training_set,distribution = "gaussian",n.trees = 1000,shrinkage = 0.01, interaction.depth =2)
+review.boost
+#Summary gives a table of Variable Importance and a plot of Variable Importance
+summary(review.boost) 
+
+#Model Performance : 1000 trees will give the best performance
+perf_gbm1 = gbm.perf(review.boost)
+print(perf_gbm1)
+
+prediction_1 <- stats::predict(
+                          # the model from above
+                          object = review.boost, 
+                          # the testing data
+                          newdata = testing_set,
+                          # this is the number we calculated above
+                          n.trees = perf_gbm1)
+
+rmse_fit1 <- Metrics::rmse(actual = testing_set$price.y, 
+                           predicted = prediction_1)
+
+
+print(rmse_fit1)
+
+#Review Score Value and Review Score Accuracy have the highest relative importance.
+```
+
+The RMSE for gradient boosting is 82.719
+
+CONCLUSION:
+
+The random forest model worked the best for our dataset and effectively predicted the price variable with an RMSE of 79.062.
+The most important variables that can be used to determine the price os a listing in NYC are accomodates, bathrooms, bedrooms, maximum nights, minimum nights, number of reviews and beds.

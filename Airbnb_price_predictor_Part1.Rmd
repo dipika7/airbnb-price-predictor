@@ -1,0 +1,493 @@
+---
+title: 'Final Project : AIRBNB PRICE PREDICTION FOR HOSTS'
+author: "Dipika Jiandani and Manshi Shah"
+output:
+  html_document:
+    df_print: paged
+---
+```{r}
+#Reading datasets : AirBNB NYC DATASET
+listings <- read.csv("D:/UIUC/Semester 2/MDS/Project/Dipika/listings.csv",sep=",", header = TRUE)
+reviews  <- read.csv("D:/UIUC/Semester 2/MDS/Project/Dipika/reviews.csv",sep=",", header = TRUE)
+attach(listings)
+head(listings)
+```
+
+```{r}
+#Remove redundant columns from the listings dataset
+listings = subset(listings, select= -c(listing_url,scrape_id,last_scraped,summary,space,description,experiences_offered,neighborhood_overview,notes,access,interaction,house_rules,thumbnail_url,medium_url,picture_url,xl_picture_url,host_url,host_about,host_thumbnail_url,host_picture_url,host_neighbourhood,market,smart_location,country,country_code,is_location_exact,calendar_last_scraped,first_review,last_review,requires_license,license,jurisdiction_names,calendar_updated,weekly_price,monthly_price,host_response_time,transit,host_id,has_availability,availability_30,availability_60,availability_90,availability_365,is_business_travel_ready))
+
+#Remove trailing spaces from column names
+names(listings) <- trimws(names(listings))
+
+head(listings)
+```
+
+```{r}
+#Checking NAs in the dataset
+#cat("The columns that have NAs in Calendar are: ")
+#colnames(calendar)[apply(is.na(calendar),2,any)]
+
+cat("The columns that have NAs in Listings are: ")
+colnames(listings)[apply(is.na(listings),2,any)]
+
+cat("The columns that have NAs in Reviews are: ")
+colnames(reviews)[apply(is.na(reviews),2,any)]
+
+#Checking the no 
+sapply(listings, function(x) sum(is.na(x)))
+
+```
+
+```{r}
+#R doesn't recognize N/A as a missing value. We need to convert N/A to NA and then clean it. 
+# host_response_rate,host_acceptance_rate has multiple N/A values.The below function converts it into NA
+library(dplyr)
+listings <- listings %>%
+    mutate(host_response_rate = na_if(host_response_rate, "N/A"))
+
+listings <- listings %>%
+    mutate(host_acceptance_rate = na_if(host_acceptance_rate, "N/A"))
+
+#Remove % symbols
+listings$host_response_rate <-gsub("\\%","", listings$host_response_rate)
+listings$host_response_rate <- as.numeric(listings$host_response_rate)
+
+listings$host_acceptance_rate <-gsub("\\%","", listings$host_acceptance_rate)
+listings$host_acceptance_rate <- as.numeric(listings$host_acceptance_rate)
+
+head(listings)
+```
+
+```{r}
+# Replace NA values with 0. Zero response and acceptance rate refers that host is not proactive.
+library(dplyr)
+listings <- listings %>%
+  mutate(
+    host_response_rate = ifelse(is.na(host_response_rate),mean(host_response_rate,na.rm=TRUE), host_response_rate),
+    host_acceptance_rate = ifelse(is.na(host_acceptance_rate),mean(host_acceptance_rate,na.rm=TRUE), host_acceptance_rate)
+    )
+head(listings)
+```
+```{r}
+#security_deposit,cleaning_fee,extra_people has empty fields which will be converted to NA as well
+listings <- listings %>%
+    mutate(security_deposit = na_if(security_deposit, ""))
+
+listings <- listings %>%
+    mutate(cleaning_fee = na_if(cleaning_fee, ""))
+
+listings <- listings %>%
+    mutate(extra_people = na_if(extra_people, ""))
+
+
+#Remove $ symbols
+listings$security_deposit <-gsub("\\$","", listings$security_deposit)
+listings$security_deposit <- as.numeric(listings$security_deposit)
+
+listings$cleaning_fee <-gsub("\\$","", listings$cleaning_fee)
+listings$cleaning_fee <- as.numeric(listings$cleaning_fee)
+
+listings$extra_people <-gsub("\\$","", listings$extra_people)
+listings$extra_people <- as.numeric(listings$extra_people)
+
+```
+```{r}
+#security_deposit,cleaning_fee has empty fields.replace_with_na_all method above will convert empty strings into NA
+library(dplyr)
+listings$security_deposit <- as.numeric(listings$security_deposit)
+listings$cleaning_fee <- as.numeric(listings$cleaning_fee)
+listings$extra_people <- as.numeric(listings$extra_people)
+
+listings <- listings %>%
+    mutate(security_deposit = if_else(is.na(security_deposit),mean(security_deposit,na.rm=TRUE), security_deposit))
+
+listings <- listings %>%
+    mutate(cleaning_fee = if_else(is.na(cleaning_fee),mean(cleaning_fee,na.rm=TRUE), cleaning_fee))
+
+listings <- listings %>%
+    mutate(extra_people = if_else(is.na(extra_people),round(mean(extra_people,na.rm=TRUE)), extra_people))
+```
+
+
+```{r}
+#We see that the maximum NA variables are the ones related to the reviews. When we approach our research sub-question involving reviews, we would handle these NAs. As for the others, the NAs are quite negligible except for "square_feet". Out of 51097 observations, we have 50713 NAs. Hence, it would be best to remove this variable from our dataset.
+listings <- subset( listings, select = -square_feet)
+head(listings)
+```
+
+```{r}
+#host_verifications has data in the form ['email', 'phone', 'reviews', 'offline_government_id']. But we have host_identity_verified column which conveys the same information. So we are dropping host_verifications.
+listings <- subset( listings, select = -host_verifications)
+
+#calculated_host_listings_count is more accurate than host_listings_count. Hence,dropping host_listings_count.
+listings <- subset( listings, select = -host_listings_count)
+
+#neighbourhood_cleansed is a more accurate value than neighbourhood
+listings <- subset( listings, select = -neighbourhood)
+
+#Since, the analysis is for New York for the dataset, state variable can be dropped.
+listings <- subset( listings, select = -state)
+
+#street holds the same values as neighbourhood_cleansed. Thus, dropping this column.
+listings <- subset( listings, select = -street)
+```
+
+```{r}
+#bathrooms,bedrooms,beds have NA values.Replace it with zero.But houses cannot have zero bedroom/bathrooms/beds.So using mean for the same.
+library(dplyr)
+listings$bedrooms <- as.numeric(listings$bedrooms)
+listings$beds <- as.numeric(listings$beds)
+
+listings <- listings %>%
+    mutate(bathrooms = if_else(is.na(bathrooms), round(mean(bathrooms,na.rm=TRUE)), bathrooms))
+
+listings <- listings %>%
+    mutate(bedrooms = if_else(is.na(bedrooms), round(mean(bedrooms,na.rm=TRUE)), bedrooms))
+
+listings <- listings %>%
+    mutate(beds = if_else(is.na(beds), round(mean(beds,na.rm=TRUE)), beds))
+
+head(listings)
+```
+```{r}
+#Review scores have NA values. Replace it with the mean
+listings$review_scores_rating <- as.numeric(listings$review_scores_rating)
+listings$review_scores_accuracy <- as.numeric(listings$review_scores_accuracy)
+listings$review_scores_cleanliness <- as.numeric(listings$review_scores_cleanliness)
+listings$review_scores_checkin <- as.numeric(listings$review_scores_checkin)
+listings$review_scores_value <- as.numeric(listings$review_scores_value)
+listings$review_scores_communication <- as.numeric(listings$review_scores_communication)
+listings$review_scores_location <- as.numeric(listings$review_scores_location)
+
+listings <- listings %>%
+    mutate(review_scores_rating = if_else(is.na(review_scores_rating), round(mean(review_scores_rating,na.rm=TRUE)), review_scores_rating))
+
+listings <- listings %>%
+    mutate(review_scores_accuracy = if_else(is.na(review_scores_accuracy), round(mean(review_scores_accuracy,na.rm=TRUE)), review_scores_accuracy))
+
+listings <- listings %>%
+    mutate(review_scores_cleanliness = if_else(is.na(review_scores_cleanliness), round(mean(review_scores_cleanliness,na.rm=TRUE)), review_scores_cleanliness))
+	
+listings <- listings %>%
+    mutate(review_scores_checkin = if_else(is.na(review_scores_checkin), round(mean(review_scores_checkin,na.rm=TRUE)), review_scores_checkin))
+	
+listings <- listings %>%
+    mutate(review_scores_value = if_else(is.na(review_scores_value), round(mean(review_scores_value,na.rm=TRUE)), review_scores_value))
+
+listings <- listings %>%
+    mutate(review_scores_communication = if_else(is.na(review_scores_communication), round(mean(review_scores_communication,na.rm=TRUE)), review_scores_communication))
+
+listings <- listings %>%
+    mutate(review_scores_location = if_else(is.na(review_scores_location), round(mean(review_scores_location,na.rm=TRUE)), review_scores_location))
+
+```
+```{r}
+#Originally, number of variables in dataset : 106
+#Total number of variables in the dataset now: 56
+colnames(listings)
+length(listings)
+head(listings)
+```
+
+```{r}
+#convert price to numerical since it is a target variable
+listings$price <-gsub("\\$","", listings$price)
+listings$price <- as.numeric(listings$price)
+#remove rows with NA in price
+listings<-listings[complete.cases(listings$price), ]
+```
+
+```{r}
+#Exploratory Data Ananlysis
+#Frequency Distribution of different property types
+#group by : property_type
+library(plyr)
+library(ggplot2)
+countpropertytype = count(listings, "property_type")
+print(countpropertytype)
+
+# Basic barplot for property type vs frequency
+propertyplot<-ggplot(data=countpropertytype, aes(x=property_type, y=freq)) +
+  geom_bar(stat="identity",fill="steelblue") + labs(x = "Property Type in NYC", y = "Frequency" , title = "Property Types in NYC") + theme(axis.text.x = element_text(angle = 90, size = 12,vjust = 0.5),plot.title = element_text(size = 15, face = 4, hjust = 0.5))
+propertyplot
+
+#Average price of a given property type in NYC
+avgrentalprop = aggregate(listings$price, list(listings$property_type), mean)
+print(avgrentalprop)
+
+# Basic barplot for Property Type in NYC vs Average Rental Listing Price
+propertyRentalplot<-ggplot(data=avgrentalprop, aes(x=Group.1, y=x)) +
+  geom_bar(stat="identity",fill="steelblue") + labs(x = "Property Type in NYC", y = "Average Rental Price Per Property",title = "Average Rental Price of a property in NYC") +
+  theme(axis.text.x = element_text(angle = 90, size = 12,
+                                   vjust = 0.5))
+propertyRentalplot
+
+
+#Total Rental Listings per neighborhood
+countneighborhoods = count(listings, "neighbourhood_cleansed")
+print(countneighborhoods)
+
+# Basic barplot for Neighborhood in NYC vs Frequency
+totalRentalplot<-ggplot(data=countneighborhoods, aes(x=reorder(neighbourhood_cleansed, -freq), y=freq)) +
+  geom_bar(stat="identity",fill="red") + labs(x = "Neighborhoods in NYC", y = " No of Listings") +
+  theme(axis.text.x = element_text(angle = 90, size = 12,vjust = 0.5)) + coord_cartesian(xlim = c(0, 40))
+totalRentalplot
+
+
+#Average Listing price in a given neighborhood
+avgrentalneigh = aggregate(listings$price, list(listings$neighbourhood_cleansed), mean)
+print(avgrentalneigh)
+
+# Basic barplot for Neighborhood in NYC vs Average Rental Listing Price
+avgRentalplot<-ggplot(data=avgrentalneigh, aes(x=reorder(Group.1, -x), y=x)) +
+  geom_bar(stat="identity",fill="red") + labs(x = "Neighborhoods in NYC", y = "Average Listing Price Per Neighborhood") + theme(axis.text.x = element_text(angle = 90, size = 12,vjust = 0.5)) + coord_cartesian(xlim = c(0, 40))
+avgRentalplot
+
+
+#Which neighborhood is the best based on review_location_score
+
+reviewneigh = aggregate(listings$review_scores_location, list(listings$neighbourhood_cleansed), mean)
+print(avgrentalneigh)
+
+avgRentalplot<-ggplot(data=reviewneigh, aes(x=reorder(Group.1, -x), y=x)) +
+  geom_bar(stat="identity",fill="coral") + labs(x = "Neighborhoods in NYC", y = "Average review location score Per Neighborhood") + theme(axis.text.x = element_text(angle = 90, size = 12,vjust = 0.5)) + coord_cartesian(xlim = c(0, 40))
+avgRentalplot
+```
+```{r}
+#Secondary Research Question
+#Research Question 3: Check which review score leads to an increase in the review score rating
+set.seed(100)
+training <- sample(nrow(listings), size = nrow(listings) * 0.75)
+training_set <- listings[training,]
+testing_set <- listings[-training,]
+lmfit <- lm(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value ,data=training_set)
+summary(lmfit)
+plot(lmfit)
+
+
+#P- values of all the predictors are similar and < 0.05. Since p-value < 0.05 we can say that it is statistically significant. Also, r-Squared value is 75.89% which explains a good variance in the response. However, we will perform other fitting of models to identify teh most important factors.
+```
+```{r}
+#Lasso Regression Model with cross validation
+library(glmnet)
+set.seed(100)
+training.mat = model.matrix(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value, data = training_set)
+testing.mat  = model.matrix(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value ,data = testing_set)
+grid = 10^seq(10,-2, length = 100)
+fit.lasso <- glmnet(training.mat, training_set$review_scores_rating, alpha = 1, lambda = grid, thresh = 1e-12)
+cv.lasso <- cv.glmnet(training.mat, training_set$review_scores_rating, alpha = 1, lambda = grid, thresh = 1e-12)
+lambda.lasso <- cv.lasso$lambda.min
+print("The Best Lambda Value is:")
+lambda.lasso
+#Rebuild Model
+best.lasso <- glmnet(training.mat, training_set$review_scores_rating, alpha = 1, lambda = lambda.lasso)
+pred.lasso <- predict(best.lasso, s = lambda.lasso,testing.mat)
+print("The MSE is :")
+mean((pred.lasso - testing_set$review_scores_rating)^2)
+print("The important co-efficients :")
+coef(best.lasso)
+
+#Accuracy : MSE, R-Squared
+
+# Model performance metrics
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+
+data.frame(
+  RMSE = RMSE,
+  Rsquare = R_square
+)
+}
+
+eval_results(testing_set$review_scores_rating, pred.lasso, testing.mat)
+  
+#We can see that RMSE is as low as 3.712. R-Squared value is 75.72% which clearly explains the variance in response[review_scores_rating]. The important co-effiecients are review_scores_accuracy, review_scores_cleanliness, review_scores_communication,review_scores_value which have values > 0. Lasso didn't shrink any co-efficients to zero but we are eliminating the ones closer to zero.
+```
+```{r}
+#Random Forest
+library(randomForest)
+library(caret)
+library(e1071)
+
+set.seed(123)
+rf <- randomForest(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value, data=training_set, mtry = 5, nTree=200, importance=TRUE)
+importance <- importance(rf)
+print(importance)
+varImpPlot(rf)
+```
+```{r}
+plot(rf)
+```
+
+Selecting the value of ntree as 200 from the above plot.
+Now, we need to select the value of mtry by trial and error method.
+```{r}
+oob.err=double(10)
+test.err=double(10)
+
+for(mtry in 1:10) 
+{
+  rf=randomForest(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value, data = training_set,mtry=mtry,ntree=200) 
+  oob.err[mtry] = rf$mse[200] 
+  pred<-predict(rf,testing_set) 
+  test.err[mtry]= with(testing_set, mean( (review_scores_rating - pred)^2)) 
+  cat(mtry," ")
+  
+}
+
+
+```
+
+```{r}
+test.err
+oob.err
+
+```
+
+Hence, mtry=2 is the best
+
+```{r}
+matplot(1:mtry , cbind(oob.err,test.err), pch=19 , col=c("red","blue"),type="b",ylab="MSE",xlab="Number of Predictors")
+legend("topright",legend=c("OOB Error","Test Error"),pch=19, col=c("red","blue"))
+
+```
+
+Finally demonstrating the best model for our dataset to predict the factors impacting review score rating
+
+```{r}
+rf=randomForest(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value , data = training_set,mtry=2,ntree=200,importance=TRUE) 
+importance <- importance(rf)
+print(importance)
+varImpPlot(rf)
+pred<-predict(rf,testing_set)
+
+#It is observed that the review_scores_cleanliness and review_scores_values have the highest importance. However, all the variables seem important since there are no anomalies. Thus we choose all variables.
+```
+
+```{r}
+plot(rf)
+```
+
+```{r}
+#Accuracy: RMSE
+plot(testing_set$review_scores_rating , pred)
+RMSE <- (sum((pred-testing_set$review_scores_rating)^2)/length(testing_set$review_scores_rating))^(1/2)
+qqnorm((pred - testing_set$review_scores_rating)/sd(pred-testing_set$review_scores_rating))
+qqline((pred-testing_set$review_scores_rating)/sd(pred-testing_set$review_scores_rating))
+RMSE
+
+#We observe that RMSE is 3.79 which proves that the Random Forest model is the best.
+```
+```{r}
+#Gradient Boosting
+#Reference:https://www.storybench.org/tidytuesday-bike-rentals-part-2-modeling-with-gradient-boosting-machine/
+library(MASS)
+library(gbm)
+set.seed(123)
+review.boost=gbm(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value ,data = training_set,distribution = "gaussian",n.trees = 1000,shrinkage = 0.01, interaction.depth =2)
+review.boost
+#Summary gives a table of Variable Importance and a plot of Variable Importance
+summary(review.boost) 
+
+#Model Performance : 756 trees will give the best performance
+perf_gbm1 = gbm.perf(review.boost)
+print(perf_gbm1)
+
+review_prediction_1 <- stats::predict(
+                          # the model from above
+                          object = review.boost, 
+                          # the testing data
+                          newdata = testing_set,
+                          # this is the number we calculated above
+                          n.trees = perf_gbm1)
+
+rmse_fit1 <- Metrics::rmse(actual = testing_set$review_scores_rating, 
+                           predicted = review_prediction_1)
+
+#RMSE: 3.82
+print(rmse_fit1)
+
+#Review Score Value and Review Score Accuracy have the highest relative importance.
+```
+
+```{r}
+#Gradient Boosting in XGBoost
+library(xgboost)
+library(tidyverse)
+
+set.seed(120)
+
+train.data  = model.matrix(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value, data = training_set)
+test.data  = model.matrix(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value ,data = testing_set)
+
+label = as.integer(listings$review_scores_rating)-1
+
+train.label = label[training]
+
+test.label = label[-training]
+
+#Transform into objects to fit the model
+xgb.train = xgb.DMatrix(data=train.data,label=train.label)
+xgb.test = xgb.DMatrix(data=test.data,label=test.label)
+
+#As the number of iterations increase, Train error rate decreases
+xgboost.fit <- xgboost(data = xgb.train, label = training_set$review_scores_rating, max.depth = 2,
+               eta = 1, nthread = 2, nround = 5 )
+
+
+pred <- predict(xgboost.fit, xgb.test)
+
+# Model performance metrics
+eval_results(testing_set$review_scores_rating, pred, test.data)
+
+#Tuning the model
+xgboost.tuned <- xgboost(data = xgb.train, # the data           
+                 max.depth = 2, # the maximum depth of each decision tree
+                 nround = 10, # number of boosting rounds
+                 early_stopping_rounds = 3# if we dont see an improvement in this many rounds, stop
+                )
+
+pred.tuned <- predict(xgboost.tuned, xgb.test)
+
+# Model performance metrics
+eval_results(testing_set$review_scores_rating, pred.tuned, test.data)
+
+#Tuned XGBoost RMSE : 5.36 and R-Square : 51.11%
+```
+```{r}
+#Elastic Net Regression [Combination of Ridge and Lasso]
+#Reference : http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalized-regression-essentials-ridge-lasso-elastic-net/
+library(glmnet)
+library(caret)
+library(tidyverse)
+
+set.seed(123)
+model <- train(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value, data = training_set, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+
+# Best tuning parameter
+model$bestTune
+
+coef(model$finalModel, model$bestTune$lambda)
+
+# Make predictions on the test data
+x.test <- model.matrix(review_scores_rating ~ review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value, testing_set)[,-1]
+predictions <- model %>% predict(x.test)
+
+# Model performance metrics
+# Model performance metrics
+eval_results(testing_set$review_scores_rating, predictions, x.test)
+
+#Elastic Net has RMSE : 3.71 and RSquare: 75.72%
+```
+
+Conclusion:
+FRom linear model, Lasso, Gradient Boosting, XgBoost, ElasticNet and Random Forest Model we identify that all the predictors significantly impact the review_scores_rating.Also, Lasso performs the best. However, review_score_value and review_score_accuracy have the highest relative importance on review_scores_rating.Since, all the factors differ by a very small margin, we can conclude that in order to increase the host's profits, he/she must focus on all the factors i.e location,cleanliness, communication, checkin,accuracy and value.
+
+
