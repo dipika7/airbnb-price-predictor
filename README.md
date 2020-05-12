@@ -1,5 +1,5 @@
 # Project:Price Analysis of Airbnb Listings 
-# Team: Dipika Jiandani, Manshi Shah 
+### Collaborators: Dipika Jiandani, Manshi Shah 
  
  
 ## Background:  
@@ -34,9 +34,6 @@ Airbnb claims that at least 50% users rate their stay. Airbnb provides users to 
 ○ The Amenities Column had values in the form of a list. Example: {Oven, Car Parking, TV, Elevator}. We converted this column into a pivot table containing binary digits for the presence or absence of the amenity. (145 columns) 
 ○ Identified & eliminated columns with multicollinearity using MCTest. 
 ○ We deleted the amenity columns that had a sum of less than 1000 since the mean was 7540. 
- 
- 
- 
  
 ### 2. Exploratory Data Analysis 
 ○ Depiction of the frequency distribution of the property types in New York: We observed that ‘apartment’ is the most widely available property type and ‘house’ is the second most widely available property type in NYC. 
@@ -105,19 +102,47 @@ Random Forest
 XGBoost Elastic Net Lasso 
 R - Squared 75.89% - 51.11% 75.17% 75.17% 
 RMSE - 3.7568 5.369 3.82 3.712 
-5.  Results: • Primary Question: The most important variables that can be used to determine the price of a listing in NYC are accommodates, bathrooms, bedrooms, maximum nights, minimum nights, number of reviews and beds with the random forest model performing the best. 
+## 5.  Results: 
+• Primary Question: The most important variables that can be used to determine the price of a listing in NYC are accommodates, bathrooms, bedrooms, maximum nights, minimum nights, number of reviews and beds with the random forest model performing the best. 
  
-• Secondary Questions:  RQ1:  1. The Random forest model with the best mtry and ntree performed the best. 2. Most important amenities that an Airbnb listing could have in order to increase its price are: • TV • Gym • Elevator • Family_kid_friendly • Private Entrance • Luggage_dropoff_allowed • Indoor_fireplace 
+## • Secondary Questions:  
+RQ1:  1. The Random forest model with the best mtry and ntree performed the best. 2. Most important amenities that an Airbnb listing could have in order to increase its price are: 
+• TV 
+• Gym 
+• Elevator 
+• Family_kid_friendly 
+• Private Entrance 
+• Luggage_dropoff_allowed 
+• Indoor_fireplace 
  
-RQ2: Logistic Regression performs the best owing to the binary nature of the target variable. We obtained the most important factors that affect the host being a super host. We obtained the below factors: ● Host_acceptance_rate ● Host_response_rate ● Host_listings_count ● Beds ● Maximum_nights and minimum_nights ● Number_of_reviews ● review_scores_ratings Thus, in order to gain profits and be a superhost, every host should have a higher acceptance and response rating. Additionally, higher review rating score and listing count also influence being a superhost. 
+RQ2: Logistic Regression performs the best owing to the binary nature of the target variable. We obtained the most important factors that affect the host being a super host. We obtained the below factors: 
+● Host_acceptance_rate 
+● Host_response_rate 
+● Host_listings_count 
+● Beds 
+● Maximum_nights and minimum_nights 
+● Number_of_reviews 
+● review_scores_ratings 
+Thus, in order to gain profits and be a superhost, every host should have a higher acceptance and response rating. Additionally, higher review rating score and listing count also influence being a superhost. 
  
 RQ3: Lasso worked the best with higher R-Squared and lower RMSE. It was inferred that review scores for each aspect i.e. cleanliness, location, communication, check in, accuracy and value hold the same importance. Thus, the host must focus on each aspect to expect a surge in listing price. 
  
  
-6.  Challenges encountered: ● The dataset consisted of more than 50,000 records. Building models with this large dataset led to higher computation time and space. Hence, in order to simplify the process, we performed stratified sampling. ● The dataset required exhaustive data cleaning and munging in order to utilise them in our models. ● There were multiple predictors which had factors with levels of more than 100. This caused severe issues during model fitting. 
+## 6.  Challenges encountered: 
+● The dataset consisted of more than 50,000 records. Building models with this large dataset led to higher computation time and space. Hence, in order to simplify the process, we performed stratified sampling. 
+● The dataset required exhaustive data cleaning and munging in order to utilise them in our models. 
+● There were multiple predictors which had factors with levels of more than 100. This caused severe issues during model fitting. 
  
-7.   Future Work: We observed that review scores play an important role in predicting the price of listings. However, we did not obtain a prominent review score. Thus, we would like to perform sentiment analysis on the reviews to categorize the reviews as positive and negative. These reviews would then be utilized to check an impact on the listing price. 
+## 7.   Future Work: 
+We observed that review scores play an important role in predicting the price of listings. However, we did not obtain a prominent review score. Thus, we would like to perform sentiment analysis on the reviews to categorize the reviews as positive and negative. These reviews would then be utilized to check an impact on the listing price. 
  
-8. Learnings: ● Based on research papers and domain knowledge, we expected certain predictors like host_response_rate, review_rating, amenities etc to have a prominent impact on price. After fitting models, we realized that our expectation was fulfilled. ● Our final analysis was on the lines of what we expected. However, due to limited RAM we couldn’t test the models with all the 106 predictors. We had to reduce the predictors significantly and then fit the models.  ● There were few projects with similar dataset. Most of the projects worked on the exploratory analysis of data. Some of them made predictions with price as the target variable but used all the variables for model building rather than doing feature selection effectively. We divided our main research question into specific sub questions and then collated predictors obtained at each question. This stepwise approach gave us a broader perspective of the analysis. 
+## 8. Learnings: 
+● Based on research papers and domain knowledge, we expected certain predictors like host_response_rate, review_rating, amenities etc to have a prominent impact on price. After fitting models, we realized that our expectation was fulfilled. 
+● Our final analysis was on the lines of what we expected. However, due to limited RAM we couldn’t test the models with all the 106 predictors. We had to reduce the predictors significantly and then fit the models.  
+● There were few projects with similar dataset. Most of the projects worked on the exploratory analysis of data. Some of them made predictions with price as the target variable but used all the variables for model building rather than doing feature selection effectively. We divided our main research question into specific sub questions and then collated predictors obtained at each question. This stepwise approach gave us a broader perspective of the analysis. 
  
- References: ● https://www.researchgate.net/publication/319178393_The_web_of_hostguest_connection s_on_Airbnb-A_social_network_perspective ●  http://insideairbnb.com/get-the-data.html ● http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalizedregression-essentials-ridge-lasso-elastic-net/ ● https://www.storybench.org/tidytuesday-bike-rentals-part-2-modeling-with-gradientboosting-machine/
+## References: 
+● https://www.researchgate.net/publication/319178393_The_web_of_hostguest_connection s_on_Airbnb-A_social_network_perspective 
+●  http://insideairbnb.com/get-the-data.html 
+● http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalizedregression-essentials-ridge-lasso-elastic-net/ 
+● https://www.storybench.org/tidytuesday-bike-rentals-part-2-modeling-with-gradientboosting-machine/
