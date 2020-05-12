@@ -38,7 +38,8 @@ Airbnb claims that at least 50% users rate their stay. Airbnb provides users to 
 ### 2. Exploratory Data Analysis 
 ○ Depiction of the frequency distribution of the property types in New York: We observed that ‘apartment’ is the most widely available property type and ‘house’ is the second most widely available property type in NYC. 
  
- 
+![](image/proptypes.PNG)
+
 Fig. 1.1 Frequency vs Property type in NYC 
  
 ○ Depiction of the average price per rental property in New York: Resorts are the most expensive property type followed by ‘lighthouse’ and ‘timeshare’.  
